@@ -1,0 +1,30 @@
+{
+  "name": "webpack-demo",
+  "version": "1.0.0",
+  "description": ":bowtie: webpack练习的相关demo",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "cross-env NODE_ENV=development webpack",
+    "build": "cross-env NODE_ENV=production webpack"
+  },
+  "dependencies": {
+    "cross-env": "^6.0.3",
+    "css-loader": "^3.2.0",
+    "rimraf": "^3.0.0",
+    "webpack": "^4.41.2"
+  },
+  "devDependencies": {
+    "webpack-cli": "^3.3.10"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/QinZhen001/webpack-demo.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/QinZhen001/webpack-demo/issues"
+  },
+  "homepage": "https://github.com/QinZhen001/webpack-demo#readme"
+}
