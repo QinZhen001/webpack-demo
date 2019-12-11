@@ -5,3 +5,9 @@ let b = 2222
 const c = a + b
 
 console.log("c", c)
+
+
+export {
+  a,
+  b
+}

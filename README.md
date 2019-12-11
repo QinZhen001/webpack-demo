@@ -2,35 +2,212 @@
 :bowtie: webpack练习的相关demo
 
 
-## webpack-loader
+## webpack-plugin
 
-[https://webpack.docschina.org/contribute/writing-a-loader](https://webpack.docschina.org/contribute/writing-a-loader)
+插件向第三方开发者提供了 webpack 引擎中完整的能力。使用阶段式的构建回调，开发者可以引入它们自己的行为到 webpack 构建流程中。创建插件比创建 loader 更加高级，因为你将需要理解一些 webpack 底层的内部特性来做相应的钩子，所以做好阅读一些源码的准备！
 
-### 什么是 webpack loader
+### 创建插件
 
+webpack 插件由以下组成：
 
-webpack loader 是 webpack 为了处理各种类型文件的一个中间层，webpack 本质上就是一个 node 模块，它不能处理 js 以外的文件，那么 loader 就帮助 webpack 做了一层转换，将所有文件都转成字符串，你可以对字符串进行任意操作/修改，然后返回给 webpack 一个包含这个字符串的对象，让 webpack 进行后面的处理。如果把 webpack 当成一个垃圾工厂的话，那么 loader 就是这个工厂的垃圾分类！
-
-
-
-### 简单用法
-
-当一个 loader 在资源中使用，这个 loader 只能传入一个参数 - 这个参数是一个包含包含资源文件内容的字符串
-
-
-同步 loader 可以简单的返回一个代表模块转化后的值。在更复杂的情况下，loader 也可以通过使用 this.callback(err, values...) 函数，返回任意数量的值。错误要么传递给这个 this.callback 函数，要么扔进同步 loader 中。
-
-loader 会返回一个或者两个值。第一个值的类型是 JavaScript 代码的字符串或者 buffer。第二个参数值是 SourceMap，它是个 JavaScript 对象。
+* 一个 JavaScript 命名函数。
+* 在插件函数的 prototype 上定义一个 apply 方法。
+* 指定一个绑定到 webpack 自身的事件钩子。
+* 处理 webpack 内部实例的特定数据。
+* 功能完成后调用 webpack 提供的回调。
 
 
-### 复杂用法 
+```javascript
+// 一个 JavaScript 命名函数。
+function MyExampleWebpackPlugin() {
+
+};
+
+// 在插件函数的 prototype 上定义一个 `apply` 方法。
+MyExampleWebpackPlugin.prototype.apply = function(compiler) {
+  // 指定一个挂载到 webpack 自身的事件钩子。
+  compiler.plugin('webpacksEventHook', function(compilation /* 处理 webpack 内部实例的特定数据。*/, callback) {
+    console.log("This is an example plugin!!!");
+
+    // 功能完成后调用 webpack 提供的回调。
+    callback();
+  });
+};
+```
 
 
-当链式调用多个 loader 的时候，请记住它们会以相反的顺序执行。取决于数组写法格式，从右向左或者从下向上执行。
 
-* 最后的 loader 最早调用，将会传入原始资源内容。
-* 第一个 loader 最后调用，期望值是传出 JavaScript 和 source map（可选）。
-* 中间的 loader 执行时，会传入前一个 loader 传出的结果。
+### Compiler 和 Compilation
+
+[https://github.com/webpack/webpack/blob/master/lib/Compiler.js](https://github.com/webpack/webpack/blob/master/lib/Compiler.js)
+
+
+[https://github.com/webpack/webpack/blob/master/lib/Compilation.js](https://github.com/webpack/webpack/blob/master/lib/Compilation.js)
+
+
+
+在插件开发中最重要的两个资源就是 compiler 和 compilation 对象。理解它们的角色是扩展 webpack 引擎重要的第一步。
+
+
+
+* compiler 对象代表了完整的 webpack 环境配置。这个对象在启动 webpack 时被一次性建立，并配置好所有可操作的设置，包括 options，loader 和 plugin。当在 webpack 环境中应用一个插件时，插件将收到此 compiler 对象的引用。可以使用它来访问 webpack 的主环境。
+* compilation 对象代表了一次资源版本构建。当运行 webpack 开发环境中间件时，每当检测到一个文件变化，就会创建一个新的 compilation，从而生成一组新的编译资源。一个 compilation 对象表现了当前的模块资源、编译生成资源、变化的文件、以及被跟踪依赖的状态信息。compilation 对象也提供了很多关键时机的回调，以供插件做自定义处理时选择使用。
+
+
+
+
+
+
+### 基本插件架构
+
+
+插件是由「具有 apply 方法的 prototype 对象」所实例化出来的。这个 apply 方法在安装插件时，会被 webpack compiler 调用一次。apply 方法可以接收一个 webpack compiler 对象的引用，从而可以在回调函数中访问到 compiler 对象。
+
+
+
+### 访问 compilation 对象
+
+
+使用 compiler 对象时，你可以绑定提供了编译 compilation 引用的回调函数，然后拿到每次新的 compilation 对象。这些 compilation 对象提供了一些钩子函数，来钩入到构建流程的很多步骤中。
+
+
+
+```javascript
+function HelloCompilationPlugin(options) {}
+
+HelloCompilationPlugin.prototype.apply = function(compiler) {
+
+  // 设置回调来访问 compilation 对象：
+  compiler.plugin("compilation", function(compilation) {
+
+    // 现在，设置回调来访问 compilation 中的步骤：
+    compilation.plugin("optimize", function() {
+      console.log("Assets are being optimized.");
+    });
+  });
+};
+
+module.exports = HelloCompilationPlugin;
+```
+
+
+
+### 异步编译插件
+
+有一些编译插件中的步骤是异步的，这样就需要额外传入一个 callback 回调函数，并且在插件运行结束时，_必须_调用这个回调函数。
+
+
+
+```javascript
+function HelloAsyncPlugin(options) {}
+
+HelloAsyncPlugin.prototype.apply = function(compiler) {
+  compiler.plugin("emit", function(compilation, callback) {
+
+    // 做一些异步处理……
+    setTimeout(function() {
+      console.log("Done with async work...");
+      callback();
+    }, 1000);
+
+  });
+};
+
+module.exports = HelloAsyncPlugin;
+
+```
+
+
+### 插件的不同类型
+
+
+webpack 插件可以按照它所注册的事件分成不同的类型。每一个事件钩子决定了它该如何应用插件的注册。
+
+
+
+**同步(synchronous) Tapable 实例应用插件时会使用：**
+
+
+applyPlugins(name: string, args: any...)
+
+applyPluginsBailResult(name: string, args: any...)
+
+这意味着每个插件回调，都会被特定的 args 一个接一个地调用。 这是插件的最基本形式。许多有用的事件（例如 "compile", "this-compilation"），预期插件会同步执行。
+
+----
+
+**瀑布流(waterfall) 插件应用时会使用：**
+
+
+
+applyPluginsWaterfall(name: string, init: any, args: any...)
+
+这种类型，每个插件都在其他插件依次调用之后调用，前一个插件调用的返回值，作为参数传入后一个插件。这类插件必须考虑其执行顺序。 必须等前一个插件执行后，才能接收参数。第一个插件的值是初始值(init)。这个模式用在与 webpack 模板相关的 Tapable 实例中（例如 ModuleTemplate, ChunkTemplate 等）。
+
+
+-----
+
+
+**异步(asynchronous) When all the plugins are applied asynchronously using**
+
+
+applyPluginsAsync(name: string, args: any..., callback: (err?: Error) -> void)
+
+
+
+
+
+### 插件模式
+
+在 webpack 构建系统中，能够通过插件进行定制，这赋予了无限的可能性。这使你可以创建自定义资源类型(asset type)，执行唯一的构建修改(build modification)，甚至可以使用中间件来增强 webpack 运行时。下面是在编写插件时非常有用一些 webpack 的功能。
+
+
+**检索遍历资源(asset)、chunk、模块和依赖**
+
+
+
+在执行完成编译的封存阶段(seal)之后，编译(compilation)的所有结构都可以遍历。
+
+
+
+```javascript
+function MyPlugin() {}
+
+MyPlugin.prototype.apply = function(compiler) {
+  compiler.plugin('emit', function(compilation, callback) {
+
+    // 检索每个（构建输出的）chunk：
+    compilation.chunks.forEach(function(chunk) {
+      // 检索 chunk 中（内置输入的）的每个模块：
+      chunk.modules.forEach(function(module) {
+        // 检索模块中包含的每个源文件路径：
+        module.fileDependencies.forEach(function(filepath) {
+          // 我们现在已经对源结构有不少了解……
+        });
+      });
+
+      // 检索由 chunk 生成的每个资源(asset)文件名：
+      chunk.files.forEach(function(filename) {
+        // Get the asset source for each file generated by the chunk:
+        var source = compilation.assets[filename].source();
+      });
+    });
+
+    callback();
+  });
+};
+
+module.exports = MyPlugin;
+```
+
+
+
+
+
+
+
+
+
 
 
 

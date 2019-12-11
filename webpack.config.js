@@ -1,9 +1,7 @@
 const path = require("path")
+const FileListPlugin = require("./plugin/file-list-plugin")
+const PrintPlugin = require("./plugin/print-plugin")
 
-const LOADER_NAME = "loader2"
-
-// console.log("process.env.NODE_ENV", process.env.NODE_ENV)
-// console.log("__dirname", process.cwd())
 
 module.exports = {
   mode: process.env.NODE_ENV,
@@ -12,16 +10,12 @@ module.exports = {
     rules: [
       {
         test: /\.js$/,
-        use: [
-          {
-            loader: path.resolve(__dirname, `./loader/${LOADER_NAME}`),
-            options: {
-              aaa: "aaa",
-              bbb: "bbb"
-            }
-          }
-        ]
+        use: []
       }
     ]
-  }
+  },
+  plugins: [
+    // new FileListPlugin()
+    new PrintPlugin()
+  ]
 }
